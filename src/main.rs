@@ -52,16 +52,23 @@ const CHALLENGE_SIZE: usize = core::mem::size_of::<Challenge>();
 fn send_pixels(px_states: &mut [Challenge]) {
     // Example processing function
     let mut stream = TcpStream::connect("172.29.165.125:5000").expect("Failed to connect to TCP server");
+    let mut data: [u8;  WIDTH as usize * HEIGHT as usize * 4] = [0; WIDTH as usize * HEIGHT as usize * 4];
 
     loop {
+        let mut i = 0;
         for px_state in px_states.iter() {
-            let data = [px_state.r, px_state.g, px_state.b, 255];
+            data[i * 4] = px_state.r;
+            data[i * 4 + 1] = px_state.g;
+            data[i * 4 + 2] = px_state.b;
 
-            if let Err(e) = stream.write_all(&data) {
-                log::error!("Failed to send pixel: {}", e);
-                break;
-            }
+            i += 1;
         }
+
+        if let Err(e) = stream.write_all(&data) {
+            log::error!("Failed to send pixel: {}", e);
+            break;
+        }
+
         std::thread::sleep(std::time::Duration::from_secs_f64(1.0 / 60.0));
     }
 }
