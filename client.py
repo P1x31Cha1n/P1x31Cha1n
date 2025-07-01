@@ -14,17 +14,14 @@ def solve_pow(prefix, difficulty):
         nonce = nonce.encode('ascii')
         h = hashlib.sha256(prefix + nonce).digest()[::-1]
         h = h.hex()
-        print(h)
         if int(h, 16) & ((1 << difficulty)-1) == 0:
             return nonce
 
 def send_pixel(x, y, r, g, b):
     with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
-        #server_address = ("172.29.165.125", 8080)
-        server_address = ("127.0.0.1", 8080)
+        server_address = ("172.29.165.125", 8080)
         # Pack x and y as 16-bit little-endian values
         message = struct.pack('<HH', x, y)
-        print("connected")
         sock.sendto(message, server_address)
         # Receive the response
 
@@ -33,8 +30,6 @@ def send_pixel(x, y, r, g, b):
         nonce = solve_pow(resp, difficulty)
 
         message = resp + nonce + struct.pack('BBB', r, g, b)
-        print(message)
-        print(sock.sendto(message, server_address))
 
 
 def send_image(path):
