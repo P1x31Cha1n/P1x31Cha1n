@@ -142,7 +142,7 @@ fn main() {
                             px_states[offset].r = packet.new_r;
                             px_states[offset].g = packet.new_g;
                             px_states[offset].b = packet.new_b;
-                            px_states[offset].challenge = packet.nonce;
+                            px_states[offset].challenge = hash_result[..16].try_into().unwrap();
                         }
                     }
                 }
