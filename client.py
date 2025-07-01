@@ -30,6 +30,7 @@ def send_pixel(x, y, r, g, b):
         nonce = solve_pow(resp, difficulty)
 
         message = resp + nonce + struct.pack('BBB', r, g, b)
+        sock.sendto(message, server_address)
 
 
 def send_image(path):
