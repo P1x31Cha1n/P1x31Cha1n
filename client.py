@@ -22,15 +22,20 @@ def send_pixel(x, y, r, g, b):
         server_address = ("172.29.165.125", 8080)
         # Pack x and y as 16-bit little-endian values
         message = struct.pack('<HH', x, y)
-        sock.sendto(message, server_address)
-        # Receive the response
+        sock.settimeout(0.2)
+        try:
+            sock.sendto(message, server_address)
+            # Receive the response
 
-        resp = sock.recv(1024)
-        difficulty = resp[7]
-        nonce = solve_pow(resp, difficulty)
+            resp = sock.recv(1024)
+            difficulty = resp[7]
+            nonce = solve_pow(resp, difficulty)
 
-        message = resp + nonce + struct.pack('BBB', r, g, b)
-        sock.sendto(message, server_address)
+            message = resp + nonce + struct.pack('BBB', r, g, b)
+            sock.sendto(message, server_address)
+        except:
+            # Sometimes the UDP packets get lost and we need to read
+            pass
 
 
 def send_image(path):
