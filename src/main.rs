@@ -1,6 +1,5 @@
 use std::net::UdpSocket;
 use std::mem;
-use log;
 use zerocopy::{IntoBytes, FromBytes, KnownLayout};
 use std::fs::OpenOptions;
 use memmap2::MmapMut;
@@ -10,14 +9,14 @@ use std::io::Write;
 use std::net::TcpStream;
 
 #[derive(IntoBytes, FromBytes, KnownLayout)]
-#[repr(C, packed)]
+#[repr(C, packed(2))]
 struct PixelPacket {
     x: u16,          // Little-endian 16-bit integer
     y: u16,          // Little-endian 16-bit integer
 }
 
 #[derive(IntoBytes, FromBytes, KnownLayout)]
-#[repr(C, packed)]
+#[repr(C, packed(2))]
 struct Challenge {
     pos: PixelPacket,
     r: u8,
@@ -28,13 +27,14 @@ struct Challenge {
 }
 
 #[derive(IntoBytes, FromBytes, KnownLayout)]
-#[repr(C, packed)]
+#[repr(C, packed(2))]
 struct SetPixelPacket {
     challenge: Challenge,
     nonce: [u8; 16],
     new_r: u8,
     new_g: u8,
     new_b: u8,
+    pad: u8,
 }
 
 const WIDTH: u16 = 384;
@@ -55,13 +55,10 @@ fn send_pixels(px_states: &mut [Challenge]) {
     let mut data: [u8;  WIDTH as usize * HEIGHT as usize * 4] = [0; WIDTH as usize * HEIGHT as usize * 4];
 
     loop {
-        let mut i = 0;
-        for px_state in px_states.iter() {
+        for (i, px_state) in px_states.iter().enumerate() {
             data[i * 4] = px_state.r;
             data[i * 4 + 1] = px_state.g;
             data[i * 4 + 2] = px_state.b;
-
-            i += 1;
         }
 
         if let Err(e) = stream.write_all(&data) {
@@ -74,11 +71,14 @@ fn send_pixels(px_states: &mut [Challenge]) {
 }
 
 fn main() {
+    env_logger::init();
+
     let file_path = "/tmp/pixel-chain";
     let file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
+        .truncate(false)
         .open(file_path)
         .expect("Failed to open or create file");
 
@@ -121,29 +121,25 @@ fn main() {
 
                 let offset = packet.challenge.pos.y as usize * WIDTH as usize + packet.challenge.pos.x as usize;
 
-                if size == core::mem::size_of::<SetPixelPacket>() {
-                    let _packet_bytes: &mut [u8; core::mem::size_of::<SetPixelPacket>()] =
+                if size == core::mem::offset_of!(SetPixelPacket, pad) && px_states[offset] == packet.challenge {
+                    let packet_bytes: &mut [u8; core::mem::size_of::<SetPixelPacket>()] =
                         zerocopy::transmute_mut!(&mut packet);
+                    let mut hasher = Sha256::new();
+                    // With the nonce
+                    hasher.update(&packet_bytes[..core::mem::offset_of!(SetPixelPacket, new_r)]);
+                    let hash_result = hasher.finalize();
 
-                    if px_states[offset] == packet.challenge {
-                        let packet_bytes: &mut [u8; core::mem::size_of::<SetPixelPacket>()] =
-                            zerocopy::transmute_mut!(&mut packet);
-                        let mut hasher = Sha256::new();
-                        // With the nonce
-                        hasher.update(&packet_bytes[..core::mem::size_of::<Challenge>() + 16]);
-                        let hash_result = hasher.finalize();
+                    let leading_u64 = u64::from_le_bytes(hash_result[..8].try_into().unwrap());
 
-                        let leading_u64 = u64::from_le_bytes(hash_result[..8].try_into().unwrap());
-
-                        println!("leading_u64 {:x}, hash: {:?}", leading_u64, hash_result);
-
-                        if 0 == (leading_u64 & (((1 as u64) << packet.challenge.difficulty)-1)) {
-                            println!("good!");
-                            px_states[offset].r = packet.new_r;
-                            px_states[offset].g = packet.new_g;
-                            px_states[offset].b = packet.new_b;
-                            px_states[offset].challenge = hash_result[..16].try_into().unwrap();
-                        }
+                    if 0 == (leading_u64 & ((1_u64 << packet.challenge.difficulty)-1)) {
+                        log::debug!("Setting pixel {}, {} to {:02x}{:02x}{:02x} with hash {:016x}",
+                                    packet.challenge.pos.x, packet.challenge.pos.y,
+                                    packet.new_r, packet.new_g, packet.new_b,
+                                    leading_u64);
+                        px_states[offset].r = packet.new_r;
+                        px_states[offset].g = packet.new_g;
+                        px_states[offset].b = packet.new_b;
+                        px_states[offset].challenge = hash_result[..16].try_into().unwrap();
                     }
                 }
 

@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+env_logger = "0.11.8"
 log = { version = "0.4", features = ["max_level_debug", "release_max_level_warn"] }
 memmap2 = "0.9.5"
 sha2 = "0.10.9"
