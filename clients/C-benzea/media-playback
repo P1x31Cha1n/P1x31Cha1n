@@ -1,0 +1,7 @@
+A simple way to render a loop:
+
+Commands for playing back. First render images into raw frames, e.g.:
+gst-launch-1.0 filesrc location=INPUT ! decodebin3 ! videoscale ! autovideoconvert ! "video/x-raw,height=54,width=96" ! multifilesink location=/tmp/image-frames/%05d
+
+Then replace the contents of the memory mapped image regularly
+while true; do for i in /tmp/image-frames/*; do sleep 1.0; dd if=$i of=/tmp/image bs=10M; done; done
