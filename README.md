@@ -15,14 +15,18 @@ mapped file. Should it fail, which is certainly unlikely, it can simply be
 restarted and begin serving clients immediately without loss of the current
 pixel blocks.
 
-Client
-------
+Clients
+-------
 
-This repository currently contains a python client that has been tuned to
-perfection already. We doubt it is possible to set pixels faster than this
-client does. If you think otherwise, then please send us your solution.
+There is an example python client in this repository in the
+`clients/python-example` subdirectory.
 
-You can provide provide your solution as a merge request to this repository.
+Other implementations:
+* C implementation by benzea in `clients/C-benzea`
+* a rust implementation on https://github.com/Max-42/pixel-flood
+
+Help extend the list. Create a merge request with your implementation or just
+adding an entry to this list.
 
 Repository
 ----------
